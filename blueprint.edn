@@ -1,0 +1,46 @@
+{:itonami.blueprint/id "cloud-itonami-isic-2823"
+ :itonami.blueprint/name "Manufacture of machinery for metallurgy"
+ :itonami.blueprint/isic-rev5 "2823"
+ :itonami.blueprint/domain :metallurgy-machinery/manufacturing
+ :itonami.blueprint/license "AGPL-3.0-or-later"
+ :itonami.blueprint/social-impact [:worker-safety :equipment-safety :structural-integrity-transparency :quality-defect-transparency]
+ :itonami.blueprint/governor :metallurgy-machinery-plant-operations-governor
+ :itonami.blueprint/robotics true
+ :itonami.blueprint/required-technologies [:robotics :identity :forms :dmn :bpmn :audit-ledger :eda :cae]
+ :itonami.blueprint/optional-technologies []
+ :itonami.blueprint/status :public-oss
+ :itonami.blueprint/maturity :implemented
+ :itonami.blueprint/implemented-slice
+ "MetalMachAdvisor ⊣ Metallurgy Machinery Plant Operations Governor,
+ langgraph-clj StateGraph, append-only audit ledger. A plant OPERATIONS
+ COORDINATION actor for ISIC 2823 (Manufacture of machinery for
+ metallurgy) -- rolling mills, casting machinery and metal-processing
+ plant equipment, distinct from siblings 2812 [fluid power equipment]/
+ 2815 [ovens, furnaces and furnace burners]/2819 [other general-purpose
+ machinery] -- this build picks ONE concrete illustrative product line,
+ documented plainly in the README: rolling-mill and casting-machinery
+ manufacturing (rolling-mill stands, continuous casters, die-casting
+ machines, extrusion presses, forging presses, wire-drawing machines)
+ -- fabrication and assembly/test-bench lines producing finished
+ metallurgy-processing machinery -- not direct fabrication/assembly-
+ line-equipment control authority and not machinery-safety
+ certification authority (e.g. EU Machinery Directive 2006/42/EC CE
+ conformity marking or ANSI B11.19 machine-safeguarding conformity
+ marking). Four ops (`:log-production-batch` / `:schedule-maintenance`
+ / `:flag-safety-concern` / `:coordinate-shipment`), all `:effect
+ :propose` only. Governor checks elaborate this blueprint's four HARD
+ invariants: propose-only effect, closed op allowlist, closed
+ proposal-effect allowlist (no direct fabrication/assembly-line-
+ equipment control), permanent equipment-actuate block, permanent
+ machinery-safety-certification-authority block (this actor never
+ self-issues a CE/ANSI-B11.19 machinery-safety conformity mark),
+ independent equipment verification/registration before maintenance
+ scheduling, independent batch verification/registration before
+ shipment coordination, independent shipment-quantity recompute
+ against the batch's own logged production quantity, double-schedule
+ guard, product-type validation, load-test plausibility validation,
+ and defect-rate plausibility validation. Safety-concern flagging
+ (equipment-safety/structural-integrity/quality-defect concern) ALWAYS
+ escalates to a human plant supervisor; `:log-production-batch` is the
+ only op eligible to auto-commit, and only at phase 3 when
+ governor-clean."}
