@@ -43,6 +43,7 @@
   (:require [clojure.java.io :as io]
             [clojure.set :as set]
             [clojure.string :as str]
+            [jp-go-dds.skin :as dds-skin]
             [langgraph.graph :as g]
             [metalmachmfg.advisor :as advisor]
             [metalmachmfg.governor :as governor]
@@ -473,13 +474,30 @@
     (str "<span class=\"badge " cls "\">" (esc label) "</span>")))
 
 (def ^:private css "
-:root{--ink:#1a1a1c;--muted:#5c6169;--line:#d8dce3;--bg:#f6f7f9;--card:#fff;
---blue:#0017c1;--blue-weak:#e8ebff;--red:#c9252d;--red-weak:#fdeaea;
---amber:#8a6100;--amber-weak:#fdf3dd;--green:#197a3d;--green-weak:#e6f4ea;
---violet:#5b2ea6;--violet-weak:#f0e9fb;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+/* App CSS. Every colour and face below resolves to a jp-go-dds (DADS)
+   token -- there is no raw hex in this stylesheet. This layer is
+   concatenated AFTER `jp-go-dds.skin/dds+skin`, so it owns only what
+   DADS has no opinion about: the app shell (.wrap), and this console's
+   own component vocabulary (.card/.badge/.pill/.refusal/.counts).
+   Do NOT re-derive a token here; if one is missing, add it upstream. */
+:root{--ink:var(--color-neutral-solid-gray-800);
+--muted:var(--color-neutral-solid-gray-600);
+--line:var(--color-neutral-solid-gray-200);
+--bg:var(--color-neutral-solid-gray-50);
+--card:var(--color-neutral-white);
+--well:var(--color-neutral-solid-gray-50);
+--chip:var(--color-neutral-solid-gray-100);
+--blue:var(--color-key-900);--blue-weak:var(--color-primitive-blue-100);
+--red:var(--color-primitive-red-1000);--red-weak:var(--color-primitive-red-50);
+--amber:var(--color-primitive-yellow-1000);--amber-weak:var(--color-primitive-yellow-50);
+--green:var(--color-primitive-green-800);--green-weak:var(--color-primitive-green-50);
+--violet:var(--color-primitive-purple-900);--violet-weak:var(--color-primitive-purple-50);
+--mono:var(--font-family-mono)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);
-font-family:system-ui,-apple-system,'Hiragino Sans','Noto Sans JP',sans-serif;
+/* the compat skin centres <body> itself; this console owns its own
+   shell (.wrap), so hand the width back rather than nesting two. */
+body{margin:0;max-width:none;padding:0;background:var(--bg);color:var(--ink);
+font-family:var(--font-family-sans);
 line-height:1.7;font-size:15px}
 .wrap{max-width:1080px;margin:0 auto;padding:40px 20px 96px}
 header.page{border-bottom:4px solid var(--blue);padding-bottom:20px;margin-bottom:8px}
@@ -494,21 +512,21 @@ section>p.lede{color:var(--muted);font-size:13.5px;margin:10px 0 16px}
 h3{font-size:15px;margin:22px 0 8px}
 table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
 th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
-thead th{background:#eef0f4;font-weight:700;white-space:nowrap}
-table.kv th{width:34%;background:#f4f6f8;font-weight:600;font-family:var(--mono);font-size:12px}
-code{font-family:var(--mono);font-size:12px;background:#f1f3f6;padding:1px 5px;
-border-radius:4px;word-break:break-all}
+thead th{background:var(--well);font-weight:700;white-space:nowrap}
+table.kv th{width:34%;background:var(--well);font-weight:600;font-family:var(--mono);font-size:12px}
+code{font-family:var(--mono);font-size:12px;background:var(--well);padding:1px 5px;
+border-radius:4px;word-break:break-all;color:inherit}
 td>code{background:transparent;padding:0}
-.nil{color:#98a0ab}
+.nil{color:var(--color-neutral-solid-gray-500)}
 .badge{display:inline-block;border-radius:5px;padding:2px 9px;font-size:11.5px;
 font-weight:700;white-space:nowrap}
 .badge.commit{background:var(--green-weak);color:var(--green)}
 .badge.hard{background:var(--red-weak);color:var(--red)}
 .badge.phase{background:var(--amber-weak);color:var(--amber)}
 .badge.human{background:var(--violet-weak);color:var(--violet)}
-.badge.warn,.badge.other{background:#eceff3;color:var(--muted)}
+.badge.warn,.badge.other{background:var(--chip);color:var(--muted)}
 .counts{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0 4px;padding:0;list-style:none}
-.counts li{background:#f4f6f8;border:1px solid var(--line);border-radius:8px;
+.counts li{background:var(--well);border:1px solid var(--line);border-radius:8px;
 padding:10px 16px;min-width:150px}
 .counts .n{display:block;font-size:26px;font-weight:800;line-height:1.2}
 .counts .l{font-size:12px;color:var(--muted)}
@@ -797,7 +815,10 @@ footer{color:var(--muted);font-size:12px;margin-top:30px;text-align:center}
     (str "<!DOCTYPE html>\n<html lang=\"ja\"><head><meta charset=\"utf-8\">"
          "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
          "<title>" (esc (:name blueprint)) " — operator console</title>"
-         "<style>" css "</style></head><body><div class=\"wrap\">"
+         ;; DADS first (tokens + base), then the compat skin, then this
+         ;; console's app CSS -- order matters, each layer overrides the
+         ;; one before it.
+         "<style>" (dds-skin/dds+skin) "\n" css "</style></head><body><div class=\"wrap\">"
          "<header class=\"page\">"
          "<p><span class=\"pill\">ISIC " (esc (:isic blueprint)) "</span>"
          "<span class=\"pill\">" (esc (:id blueprint)) "</span>"
