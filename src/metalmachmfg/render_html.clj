@@ -264,6 +264,10 @@
      :verdict (get-in final [:state :verdict])
      :disposition (get-in final [:state :disposition])
      :record (get-in final [:state :record])
+     ;; The graph's own in-run :audit channel. NOT the same thing as the
+     ;; store's append-only ledger -- see `approver-attribution`, where
+     ;; the difference between the two turns out to matter a great deal.
+     :audit (vec (get-in final [:state :audit]))
      :facts (vec (subvec (vec (store/ledger db)) before after))}))
 
 ;; ----------------------------------------------------------------------
@@ -350,24 +354,64 @@
    (map-indexed (fn [i c] ["safety-concerns" (or (:id c) (str i)) c]) (store/safety-concerns db))
    (->> (store/get-records db) (sort-by key) (map (fn [[k v]] ["records" k v])))))
 
+(defn- names-value?
+  "Does any VALUE of map `m` equal `nm`? Used to ask whether a durable
+  fact mentions a particular human at all -- deliberately value-based
+  rather than key-based, so a store that starts recording the approver
+  under ANY key name is still detected."
+  [m nm]
+  (boolean (some #(= % nm) (vals m))))
+
 (defn approver-attribution
-  "Scan the ledger for granted approvals, then scan the registers for
-  approver-shaped keys, and report what actually survived. Nothing here
-  is hard-coded about whether this repo retains attribution -- if the
-  store starts persisting the approver, this section says so on its own."
-  [db]
+  "Follow each human approval submitted during this run through all
+  three places it could have been retained, and report where it
+  actually survived:
+
+    1. the graph's in-run `:audit` channel   (ephemeral)
+    2. the store's append-only ledger        (durable audit trail)
+    3. the SSoT registers                    (durable state)
+
+  Nothing here is hard-coded about whether this repo retains
+  attribution. Each column is re-derived from the run, so if the store
+  or the commit node starts persisting the approver, this section
+  reports that on its own."
+  [db results]
   (let [ledger (vec (store/ledger db))
-        granted (filterv #(= :approval-granted (:t %)) ledger)
-        approvers (into (sorted-set) (keep :by granted))
+        submitted (vec (for [r results :when (:approval r)]
+                         (let [nm (get-in r [:approval :by])
+                               hits (vec (for [[kind id rec] (register-entities db)
+                                               k (approver-shaped-keys rec)
+                                               :when (= id (get-in r [:request :subject]))]
+                                           {:kind kind :id id :key k :value (get rec k)}))]
+                           {:id (:id r)
+                            :op (get-in r [:request :op])
+                            :subject (get-in r [:request :subject])
+                            :status (get-in r [:approval :status])
+                            :by nm
+                            :disposition (:disposition r)
+                            ;; 1. was the attribution fact even produced?
+                            :in-audit? (boolean (some #(and (= :approval-granted (:t %))
+                                                            (= nm (:by %)))
+                                                      (:audit r)))
+                            ;; 2. does ANY durable ledger fact name this human?
+                            :in-ledger? (boolean (seq (filter #(names-value? % nm) ledger)))
+                            ;; 3. does any committed register record name them?
+                            :register-hits hits})))
+        approvers (into (sorted-set) (keep :by submitted))
         actors (into (sorted-set) (keep :actor ledger))
-        hits (vec (for [[kind id rec] (register-entities db)
-                        k (approver-shaped-keys rec)]
-                    {:kind kind :id id :key k :value (get rec k)}))]
-    {:granted granted
+        all-hits (vec (for [[kind id rec] (register-entities db)
+                            k (approver-shaped-keys rec)]
+                        {:kind kind :id id :key k :value (get rec k)}))]
+    {:submitted submitted
      :approvers approvers
      :executing-actors actors
-     :hits hits
-     :retained? (boolean (seq hits))
+     :hits all-hits
+     :ledger-fact-types (into (sorted-map) (frequencies (map (comp str :t) ledger)))
+     :granted-in-ledger (count (filterv #(= :approval-granted (:t %)) ledger))
+     :rejected-in-ledger (filterv #(= :approval-rejected (:t %)) ledger)
+     :approved-commits (count (filter #(and (:approval %) (= :approved (get-in % [:approval :status]))) results))
+     :retained-anywhere-durable? (boolean (or (seq all-hits)
+                                              (some :in-ledger? submitted)))
      ;; The discriminating observation: are the approver names and the
      ;; executing-actor names actually different on this run? If they
      ;; were identical, no reading of the ledger could tell them apart
@@ -647,44 +691,68 @@ footer{color:var(--muted);font-size:12px;margin-top:30px;text-align:center}
                  (cell (get r "immutable"))]))
        "<p class=\"nil\">（無し）</p>"))))
 
+(defn- yesno [b] (if b "<strong>あり</strong>" "<span class=\"nil\">無し</span>"))
+
 (defn- attribution-section [attr]
   (section
-   "8. 承認者の帰属（render 時に走査して導出）"
-   "この節はハードコードされていない。実行後のレジスタを走査して「承認者らしい名前のキー」を探し、見つかったものだけを報告する。store が承認者を保持するようになれば、この節は自動的にそう述べる。"
-   (str "<p>台帳上の承認 fact（<code>:approval-granted</code>）: <strong>"
-        (count (:granted attr)) "</strong> 件。"
-        "承認者: " (if (seq (:approvers attr))
-                     (str/join "、" (map #(str "<code>" (esc %) "</code>") (:approvers attr)))
-                     "<span class=\"nil\">—</span>")
-        "。実行アクター（台帳の <code>:actor</code>）: "
+   "8. 「誰が承認したか」は永続化されているか（render 時に追跡して導出）"
+   "この節はハードコードされていない。この実行で実際に提出された各承認について、残りうる 3 箇所（グラフの一時的な :audit チャネル / 追記型台帳 / SSoT レジスタ）を走査し、実際に残ったものだけを報告する。store や commit ノードが承認者を保持するようになれば、この表は自動的にそう述べる。"
+   (str "<p>この実行で人間が承認したコミット: <strong>" (:approved-commits attr) "</strong> 件。"
+        "承認者: "
+        (if (seq (:approvers attr))
+          (str/join "、" (map #(str "<code>" (esc %) "</code>") (:approvers attr)))
+          "<span class=\"nil\">—</span>")
+        "。台帳上の実行アクター（<code>:actor</code>）: "
         (str/join "、" (map #(str "<code>" (esc %) "</code>") (:executing-actors attr)))
         "。</p>")
    (if (:discriminable? attr)
-     (str "<div class=\"ok\"><strong>この観測は判別可能である。</strong> 承認者名と実行アクター名の集合に重なりが無いため、"
-          "台帳の <code>:actor</code>（＝実行アクター）を承認者と読み違えた場合、その誤りはこのページ上で見える。"
+     (str "<div class=\"ok\"><strong>この観測は判別可能である。</strong> 承認者名の集合と実行アクター名の集合に重なりが無いため、"
+          "台帳の <code>:actor</code>（＝<em>実行</em>アクター）を承認者と読み違えた場合、その誤りはこのページ上で見える。"
           "本 renderer は <code>:actor</code> を承認者として一切扱っていない。</div>")
      (str "<div class=\"note\"><strong>注意: この観測は判別できない。</strong> 承認者名と実行アクター名が重なっているため、"
           "<code>:actor</code> を承認者と誤読しても正解と一致してしまう。以下の帰属判定は信用してはならない。</div>"))
-   (table ["承認された op" "subject" "台帳が記録した承認者 :by" "SSoT レコードに残った承認者らしいキー"]
-          (for [gfact (:granted attr)]
-            (let [ms (filterv #(= (:subject gfact) (:id %)) (:hits attr))]
-              [(cell (:op gfact)) (cell (:subject gfact)) (cell (:by gfact))
-               (if (seq ms)
-                 (str/join "、" (map #(str "<code>" (esc (:key %)) "</code> = " (cell (:value %))) ms))
-                 "<span class=\"nil\">（無し）</span>")])))
-   (if (:retained? attr)
-     (str "<div class=\"ok\"><strong>承認者は SSoT に保持されている。</strong> レジスタ走査で "
-          (count (:hits attr)) " 件の承認者らしいキーを検出した。</div>")
-     (str "<div class=\"note\"><strong>実測した欠陥（このタスクでは修正していない）: 承認者の帰属が SSoT に残らない。</strong><br>"
-          "レジスタ全体（batches / equipment / maintenance / shipments / safety-concerns / records）を走査したが、"
-          "承認者らしいキーは <strong>1 件も存在しない</strong>。原因は実行経路の中にある: "
-          "<code>metalmachmfg.operation</code> の <code>:request-approval</code> ノードは承認者を "
-          "<code>:payload</code> に <code>:approved-by</code> として載せるが、"
-          "<code>metalmachmfg.store</code> の <code>commit-record!</code> は <code>:value</code> のみを読み、"
-          "<code>:payload</code> を一度も参照しない。したがって「誰が承認したか」は追記型台帳の "
-          "<code>:approval-granted</code> fact にしか残らず、レジスタを見ただけでは分からない。"
-          "台帳の <code>:actor</code> は<em>実行</em>アクターであって承認者ではないため、代用にもならない。<br>"
-          "これは本タスク（renderer 追加）の範囲外として意図的に未修正のまま開示する。</div>"))))
+   (table ["#" "op" "subject" "提出された判断" "承認者/却下者" "① :audit チャネル（一時）"
+           "② 追記型台帳（永続）" "③ SSoT レジスタ（永続）"]
+          (for [s (:submitted attr)]
+            [(str "<code>" (esc (:id s)) "</code>")
+             (cell (:op s)) (cell (:subject s)) (cell (:status s)) (cell (:by s))
+             (yesno (:in-audit? s))
+             (yesno (:in-ledger? s))
+             (if (seq (:register-hits s))
+               (str/join "、" (map #(str "<code>" (esc (:key %)) "</code> = " (cell (:value %)))
+                                   (:register-hits s)))
+               "<span class=\"nil\">無し</span>")]))
+   (str "<p class=\"lede\">永続台帳に実在する fact 型の内訳: <code>"
+        (esc (pr-str (:ledger-fact-types attr))) "</code>"
+        "（<code>:approval-granted</code> は " (:granted-in-ledger attr) " 件）。</p>")
+   (if (:retained-anywhere-durable? attr)
+     (str "<div class=\"ok\"><strong>承認者は永続層に保持されている。</strong> "
+          "レジスタ走査で " (count (:hits attr)) " 件の承認者らしいキーを検出した。</div>")
+     (str "<div class=\"note\"><strong>実測した欠陥（本タスクでは意図的に未修正のまま開示する）: "
+          "人間の承認者・却下者が永続層のどこにも残らない。</strong><br><br>"
+          "上表のとおり、承認者の識別子は<strong>①のグラフ内 <code>:audit</code> チャネルにしか存在せず</strong>、"
+          "②追記型台帳にも③SSoT レジスタにも到達していない。実行経路上、独立した 3 つの取りこぼしが重なっている:<br><br>"
+          "<strong>(a) 承認 fact が台帳に書かれない。</strong> "
+          "<code>metalmachmfg.operation</code> の <code>:request-approval</code> ノードは "
+          "<code>{:t :approval-granted … :by &lt;承認者&gt;}</code> を <code>:audit</code> チャネルに載せるが、"
+          "store へ書き込むのは <code>:commit</code> ノードと <code>:hold</code> ノードだけで、"
+          "<code>:commit</code> は <code>commit-fact</code> しか <code>append-ledger!</code> しない。"
+          "したがって <code>:approval-granted</code> は永続台帳に 1 件も存在しない。<br><br>"
+          "<strong>(b) 却下 fact は台帳に残るが、却下した人間の名前を持たない。</strong> "
+          "<code>:approval-rejected</code> fact は <code>governor/hold-fact</code> から作られ、"
+          "hold-fact に <code>:by</code> フィールドが無いため、"
+          "「人間が却下した」ことは残るが「誰が却下したか」は残らない。<br><br>"
+          "<strong>(c) レジスタにも残らない。</strong> "
+          "<code>:request-approval</code> ノードは承認者を <code>:payload</code> に "
+          "<code>:approved-by</code> として載せるが、<code>metalmachmfg.store</code> の "
+          "<code>commit-record!</code> は <code>:value</code> のみを読み、<code>:payload</code> を一度も参照しない。<br><br>"
+          "帰結として、この実行の " (:approved-commits attr) " 件の人間承認済みコミットについて、"
+          "永続的な監査証跡は<strong>誰が承認したかを答えられない</strong>。"
+          "台帳で唯一それらしく見える <code>:actor</code> は<em>実行</em>アクター（全 fact で "
+          (str/join "、" (map #(str "<code>" (esc %) "</code>") (:executing-actors attr)))
+          "）であって承認者ではないため、代用にもならない。"
+          "これは governor の判断ロジックの欠陥ではなく永続化層の取りこぼしであり、"
+          "renderer を追加する本タスクの中で黙って修正すべきものではないと判断し、開示にとどめる。</div>"))))
 
 (defn- ledger-section [ledger]
   (section
@@ -725,7 +793,7 @@ footer{color:var(--muted);font-size:12px;margin-top:30px;text-align:center}
   [{:keys [blueprint seed-batches seed-equipment results db]}]
   (let [ledger (vec (store/ledger db))
         counts (classify-ledger ledger)
-        attr (approver-attribution db)]
+        attr (approver-attribution db results)]
     (str "<!DOCTYPE html>\n<html lang=\"ja\"><head><meta charset=\"utf-8\">"
          "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
          "<title>" (esc (:name blueprint)) " — operator console</title>"
