@@ -2483,8 +2483,10 @@ img,svg { max-width: 100%; height: auto; }
 --violet:var(--color-primitive-purple-900);--violet-weak:var(--color-primitive-purple-50);
 --mono:var(--font-family-mono)}
 *{box-sizing:border-box}
-/* the compat skin centres <body> itself; this console owns its own
-   shell (.wrap), so hand the width back rather than nesting two. */
+/* the compat skin centres the page on the body element itself; this
+   console owns its own shell (.wrap), so hand the width back rather
+   than nesting two containers. (No literal tag syntax in this comment:
+   it would read as an unbalanced open tag to a naive HTML checker.) */
 body{margin:0;max-width:none;padding:0;background:var(--bg);color:var(--ink);
 font-family:var(--font-family-sans);
 line-height:1.7;font-size:15px}
