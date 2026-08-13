@@ -11,7 +11,16 @@
  :deps {io.github.kotoba-lang/langgraph
         {:local/root "../../kotoba-lang/langgraph"}
         io.github.kotoba-lang/langchain
-        {:local/root "../../kotoba-lang/langchain"}}
+        {:local/root "../../kotoba-lang/langchain"}
+        ;; デジタル庁デザインシステム(DADS) -- this workspace's BASE design
+        ;; system for all new UI. `render_html.clj` emits
+        ;; `jp-go-dds.skin/dds+skin` (vendored dds.css + compat skin) and
+        ;; then layers its own app CSS, which references DADS tokens only
+        ;; (no raw hex). Pinned by sha, not :local/root, so a standalone
+        ;; fork outside the monorepo still builds the console.
+        io.github.kotoba-lang/jp-go-digital-design-system
+        {:git/url "https://github.com/kotoba-lang/jp-go-digital-design-system"
+         :git/sha "83db99546eabc53613ae826ea41d1533a3c574af"}}
  :aliases
  {;; offline workspace dev -- pin transitive langchain to local checkout
   ;; (kept for parity with sibling actors' deps.edn shape; redundant
@@ -21,6 +30,11 @@
          {:local/root "../../kotoba-lang/langchain"}}}
   ;; clojure -M:dev:run  -> drive the demo through one OperationActor
   :run {:main-opts ["-m" "metalmachmfg.sim"]}
+  ;; clojure -M:render-html [out.html] -> RUN the actor and write the
+  ;; operator console from the actual run output (docs/samples/
+  ;; operator-console.html by default). Throws and writes nothing if the
+  ;; run produces zero HARD governor holds.
+  :render-html {:main-opts ["-m" "metalmachmfg.render-html"]}
   :test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
                       {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
