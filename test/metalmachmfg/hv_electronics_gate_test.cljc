@@ -2,7 +2,7 @@
   "Focused tests for the powertrain HV electronics integration decision
   contract (activity -> decision -> effect -> audit).
   Pure; deterministic; stdlib only."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is]]
             [metalmachmfg.hv-electronics-gate :as hv]))
 
