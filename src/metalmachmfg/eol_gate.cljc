@@ -33,7 +33,7 @@
 
   Pure fns; deterministic; keyword-keyed records; stdlib only."
   (:require [clojure.set :as set]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 ;; ── constants ──────────────────────────────────────────────────────────────
 

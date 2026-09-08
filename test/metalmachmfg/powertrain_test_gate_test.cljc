@@ -2,7 +2,7 @@
   "Focused tests for the powertrain integration test-bench decision
   contract (activity -> decision -> effect -> audit).
   Pure; deterministic; stdlib only."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is]]
             [metalmachmfg.powertrain-test-gate :as pt]))
 

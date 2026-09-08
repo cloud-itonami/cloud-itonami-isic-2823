@@ -23,7 +23,7 @@
     - no capacity, cycle time, yield, price or certification value is
       invented here; this module never commands equipment"
   (:require [clojure.set :as set]
-            [clojure.string :as str]))
+            [kotoba.lang.text :as str]))
 
 ;; ── constants ──────────────────────────────────────────────────────────────
 

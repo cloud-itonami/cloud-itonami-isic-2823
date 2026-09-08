@@ -2,7 +2,7 @@
   "Focused tests for the electronics SMT assembly-and-test decision
   contract (activity -> decision -> effect -> audit).
   Pure; deterministic; stdlib only."
-  (:require [clojure.string :as str]
+  (:require [kotoba.lang.text :as str]
             [clojure.test :refer [deftest is]]
             [metalmachmfg.smt-test-gate :as smt]))
 

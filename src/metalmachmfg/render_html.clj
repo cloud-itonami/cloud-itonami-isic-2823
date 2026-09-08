@@ -42,7 +42,7 @@
   human rejections into the governor's refusal count."
   (:require [clojure.java.io :as io]
             [clojure.set :as set]
-            [clojure.string :as str]
+            [kotoba.lang.text :as str]
             [jp-go-dds.skin :as dds-skin]
             [langgraph.graph :as g]
             [metalmachmfg.advisor :as advisor]
