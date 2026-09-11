@@ -11,8 +11,8 @@
 
   Run it with:
 
-      clojure -M:render-html                       ; -> docs/samples/operator-console.html
-      clojure -M:render-html /some/dir/out.html    ; -> explicit path
+      kbb -M:render-html                       ; -> docs/samples/operator-console.html
+      kbb -M:render-html /some/dir/out.html    ; -> explicit path
 
   BUILD-TIME INVARIANT (see `assert-hard-holds!`): if the run produces
   ZERO HARD governor holds, `-main` throws and writes NO file. A page
@@ -843,7 +843,7 @@ footer{color:var(--muted);font-size:12px;margin-top:30px;text-align:center}
          (attribution-section attr)
          (ledger-section ledger)
          (governor-section)
-         "<footer>生成: <code>clojure -M:render-html</code>（metalmachmfg.render-html）。"
+         "<footer>生成: <code>kbb -M:render-html</code>（metalmachmfg.render-html）。"
          "決定論的 — 実行ごとに変わる値（UUID・時刻）はページに含まれない。</footer>"
          "</div></body></html>\n")))
 
