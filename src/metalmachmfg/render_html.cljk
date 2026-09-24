@@ -40,7 +40,7 @@
   violation onto its rejection fact, so `(seq (:violations f))` is true
   for a human rejection too. Counting violations would silently fold
   human rejections into the governor's refusal count."
-  (:require [clojure.java.io :as io]
+  (:require [kotoba.io :as io]
             [kotoba.lang.coll :as set]
             [kotoba.lang.text :as str]
             [jp-go-dds.skin :as dds-skin]
@@ -875,9 +875,9 @@ footer{color:var(--muted);font-size:12px;margin-top:30px;text-align:center}
         n-hard (assert-hard-holds! ledger)   ; throws BEFORE any file is written
         html (render-page data)
         f (io/file out)]
-    (when-let [p (.getParentFile f)] (.mkdirs p))
+    (when-let [p (io/parent-file f)] (io/mkdirs p))
     (spit f html)
-    (println (str "wrote " (.getPath f) " (" (count (.getBytes html "UTF-8")) " bytes)"))
+    (println (str "wrote " (io/path f) " (" (count (.getBytes html "UTF-8")) " bytes)"))
     (println (str "  scenarios=" (count (:results data))
                   " ledger-facts=" (count ledger)
                   " HARD-governor-holds=" n-hard))
