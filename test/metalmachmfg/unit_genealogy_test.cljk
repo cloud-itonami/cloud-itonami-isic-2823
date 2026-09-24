@@ -2,7 +2,7 @@
   "Executable decision-contract tests for metalmachmfg.unit-genealogy —
   cross-cell serialized-unit genealogy + quarantine HOLD for the
   magnesium-hydrogen PEMFC electric-drive system assembly cell."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [kotoba.test :refer [deftest is testing]]
             [metalmachmfg.unit-genealogy :as ug]))
 
 (defn- rec [cell disposition] {:cell cell :disposition disposition

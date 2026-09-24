@@ -3,7 +3,7 @@
   contract (activity -> decision -> effect -> audit).
   Pure; deterministic; stdlib only."
   (:require [kotoba.lang.text :as str]
-            [clojure.test :refer [deftest is]]
+            [kotoba.test :refer [deftest is]]
             [metalmachmfg.eol-gate :as eol]))
 
 (def ^:private valid-req
