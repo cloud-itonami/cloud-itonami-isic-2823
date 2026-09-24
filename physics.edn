@@ -1,0 +1,31 @@
+;; What this vertical's robot physically does, declared for
+;; kotoba.robotics.process (kotoba-lang/robotics). `kbb -M:dev:physics` runs it.
+;;
+;; README: this plant fabricates and bench-tests metallurgy machinery --
+;; rolling-mill stands, continuous casters, die-casting machines, extrusion
+;; and forging presses -- including proof-load testing. The robots' physical
+;; work: the proof-load pull on a press tie-rod specimen, and commissioning
+;; a continuous caster mould's cooling-water supply on the test bench.
+;;
+;; Every number without a cited source is marked `estimate` in its :basis.
+{:physics/schema "itonami.physical-ai.spec.v1"
+ :repo "cloud-itonami/cloud-itonami-isic-2823"
+ :cases
+ [{:id :tie-rod-proof-pull
+   :kind :material
+   :procedure "proof-load pull on a 100 mm2 specimen of quenched-and-tempered tie-rod steel; the forging press's tie rods must not take a permanent set at the test force"
+   :params {:length-m 0.10 :area-m2 1.0e-4 :youngs-modulus-pa 210.0e9 :yield-stress-pa 650.0e6
+            :hardening-pa 2.0e9 :density-kg-m3 7850.0}
+   :sweep {:param :max-force-n :values [40000.0 50000.0 60000.0 70000.0 80000.0]}
+   :quantity :final-strain
+   :limit {:max 0.0035 :basis "estimate: 0.0035 total strain = the ~0.0031 elastic strain at a 650 MPa yield plus 0.04 % tolerated set; the 650 MPa yield of the QT steel is also an estimate"}
+   :boundary {:lo 30000.0 :hi 100000.0}}
+  {:id :caster-mould-cooling-supply
+   :kind :pipe-flow
+   :procedure "commissioning run: cooling water for one narrow-face plate of a continuous caster mould flows through a 6 m, 25 mm supply line on the test bench"
+   :params {:diameter-m 0.025 :length-m 6.0 :roughness-m 4.5e-5
+            :density-kg-m3 998.0 :viscosity-pa-s 1.0e-3 :pump-efficiency 0.7 :elevation-m 0.0}
+   :sweep {:param :q-m3s :values [0.0005 0.001 0.0015 0.002 0.0025]}
+   :quantity :pressure-drop-pa
+   :limit {:max 150000.0 :basis "estimate: 1.5 bar of the mould cooling circuit's pressure budget allotted to the supply line"}
+   :boundary {:lo 0.0002 :hi 0.005}}]}
