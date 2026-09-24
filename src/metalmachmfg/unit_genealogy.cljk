@@ -22,7 +22,7 @@
       lot id or cell name outside the closed cell set is :refused
     - no capacity, cycle time, yield, price or certification value is
       invented here; this module never commands equipment"
-  (:require [clojure.set :as set]
+  (:require [kotoba.lang.coll :as set]
             [kotoba.lang.text :as str]))
 
 ;; ── constants ──────────────────────────────────────────────────────────────

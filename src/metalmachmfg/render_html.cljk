@@ -41,7 +41,7 @@
   for a human rejection too. Counting violations would silently fold
   human rejections into the governor's refusal count."
   (:require [clojure.java.io :as io]
-            [clojure.set :as set]
+            [kotoba.lang.coll :as set]
             [kotoba.lang.text :as str]
             [jp-go-dds.skin :as dds-skin]
             [langgraph.graph :as g]
