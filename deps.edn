@@ -53,7 +53,7 @@
        io.github.kotoba-lang/langgraph
         {:local/root "../../kotoba-lang/kotoba/lib/kotoba.langgraph"}
         io.github.kotoba-lang/langchain
-        {:local/root "../../kotoba-lang/langchain"}
+        {:local/root "../../kotoba-lang/kotoba/lib/kotoba.langchain"}
         ;; デジタル庁デザインシステム(DADS) -- this workspace's BASE design
         ;; system for all new UI. `render_html.clj` emits
         ;; `jp-go-dds.skin/dds+skin` (vendored dds.css + compat skin) and
@@ -77,7 +77,7 @@
   ;; with the top-level :deps override above).
   :dev {:override-deps
         {io.github.kotoba-lang/langchain
-         {:local/root "../../kotoba-lang/langchain"}}}
+        {:local/root "../../kotoba-lang/kotoba/lib/kotoba.langchain"}}}
   ;; kbb -M:dev:run  -> drive the demo through one OperationActor
   :run {:main-opts ["-m" "metalmachmfg.sim"]}
   ;; kbb -M:render-html [out.html] -> RUN the actor and write the
